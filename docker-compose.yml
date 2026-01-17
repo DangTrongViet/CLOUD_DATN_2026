@@ -1,0 +1,41 @@
+services:
+  redis:
+    image: redis:7
+    container_name: cloud_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  web:
+    build: ./object_storage
+    container_name: cloud_web
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./object_storage:/app 
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+
+    depends_on:
+      - redis
+
+  celery:
+    build: ./object_storage
+    container_name: cloud_celery
+    command: celery -A object_storage worker --loglevel=info
+    volumes:
+      - ./object_storage:/app
+    environment:
+      - DEBUG=1
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://redis:6379/0
+    depends_on:
+      - redis
+      - web
+
+volumes:
+  redis_data:
